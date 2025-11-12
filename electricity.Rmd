@@ -1,0 +1,151 @@
+---
+title: "Electricity"
+author: "dhanesh"
+date: "2025-10-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+# Install required packages (run these lines only once)
+# install.packages("tidyverse")
+# install.packages("forecast")
+# install.packages("tseries") 
+# install.packages("ggplot2")
+
+# Load R libraries
+library(tidyverse)
+library(forecast)
+library(tseries) 
+library(ggplot2)
+
+# --- A. Load and Prepare the Data ---
+
+# Load the prepared univariate data
+data_ts <- read_csv("C:\\Users\\amind\\Downloads\\Electric_Production.csv")
+
+# --- B. Create the Monthly Time Series Object ---
+
+# The data is monthly (frequency = 12), starting Jan 1985 (1985, 1).
+# We use 'ts' because this is clean, regular, monthly data.
+production_ts <- ts(data_ts$Value, 
+                    start = c(1985, 1), 
+                    frequency = 12)
+```
+
+```{r}
+# --- A. Time Series Plot: See the Big Picture ---
+autoplot(production_ts) +
+  ggtitle("Monthly Electricity Production Index (1985-2018)") +
+  xlab("Year") +
+  ylab("Production Index Value")
+```
+```{r}
+# --- B. Seasonal Decomposition: Isolate Patterns ---
+# Use decomposition to break down the series into Trend, Seasonal, and Remainder
+# Multiplicative is often best for this type of economic data.
+decomposed_ts <- decompose(production_ts, type = "multiplicative")
+plot(decomposed_ts)
+```
+```{r}
+# --- C. Stationarity Check (ADF Test) ---
+
+# We check the stationarity of the Log-transformed data (Log often helps stabilize variance)
+log_production_ts <- log(production_ts) 
+
+adf_result <- adf.test(log_production_ts)
+print("--- ADF Test Result ---")
+print(adf_result)
+```
+```{r}
+# Determine the differencing order 'd' (d=1 is usually needed for trending data)
+if(adf_result$p.value > 0.05) {
+  print("ADF Result: P-value is high. Series is NON-STATIONARY, setting d=1.")
+  d_order <- 1 
+} else {
+  print("ADF Result: P-value is low. Series is STATIONARY, setting d=0.")
+  d_order <- 0 
+}
+```
+
+```{r}
+# Load R libraries (Ensure these are installed first: forecast, tseries, tidyverse)
+library(tidyverse)
+library(forecast)
+library(tseries) 
+
+# --- 1. Load and Prepare the Data ---
+
+# Load the prepared univariate data
+data_ts <- read_csv("C:\\Users\\amind\\Downloads\\Electric_Production.csv")
+
+# Create the Monthly Time Series object (ts)
+# Frequency = 12 (monthly data), starting Jan 1985 (1985, 1)
+production_ts <- ts(data_ts$Value, 
+                    start = c(1985, 1), 
+                    frequency = 12)
+
+# Apply Log Transformation to stabilize the increasing variance
+log_production_ts <- log(production_ts) 
+```
+
+
+```{r}
+# --- 2. Find the Best SARIMA Model ---
+
+# Use auto.arima to find the optimal SARIMA parameters (p, d, q) (P, D, Q)[12]
+# This step automatically handles trend removal and seasonal differencing.
+best_model <- auto.arima(log_production_ts, seasonal = TRUE) 
+
+print("--- Best SARIMA Model Parameters ---")
+print(best_model)
+```
+```{r}
+# --- 3. Forecast 10 Years (120 Months) Ahead ---
+
+# Set forecast horizon h = 12 months/year * 10 years = 120
+forecast_result <- forecast(best_model, h = 120)
+# --- 4. Plot the Forecast (Log Scale) ---
+
+autoplot(forecast_result) +
+  ggtitle("SARIMA Forecast: Electricity Production (Log Scale - 10 Years)") +
+  xlab("Year") +
+  ylab("Log(Production Index Value)")
+
+```
+```{r}
+# --- 5. Revert Forecast to Original Scale (Final Answer) ---
+
+# Convert the predicted mean values back from Log(Value) to the actual Index Value
+final_forecast_value <- exp(forecast_result$mean)
+
+print("--- Final Forecast (Original Index Value - Next 10 Years) ---")
+print(final_forecast_value)
+```
+
+
+`
+
